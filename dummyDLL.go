@@ -362,6 +362,7 @@ func main() {
 	}
 	cmd = newStr + "\\x86\\dumpbin.exe"
 	checkStatName(cmd)
+
 	cmdLine = exec.Command(cmd, "/EXPORTS", "/HEADERS", os.Args[1])
 	cmdOut, _ = cmdLine.StdoutPipe()
 	err = cmdLine.Start()
@@ -413,7 +414,8 @@ func main() {
 			}
 			newLn := strings.TrimSpace(scanner.Text())
 			re := regexp.MustCompile(`\s+`)
-			if len(re.Split(newLn, -1)) == 4 {
+
+			if len(re.Split(newLn, -1)) >= 4 {
 				newLn2 := re.Split(newLn, -1)[3]
 				matched, _ = regexp.MatchString(`(^\?|@)`, newLn2)
 
