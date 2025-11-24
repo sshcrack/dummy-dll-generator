@@ -283,6 +283,7 @@ func main() {
 	var cArray []string
 	var cppArray []string
 	var cppStructCases []string
+	var customFunctions = make(map[string]string)
 
 	if runtime.GOOS != "windows" {
 		exitWithMsg("This program requires Microsoft Windows", 1)
@@ -293,12 +294,20 @@ func main() {
 
 	fmt.Println("\nDummy DLL Generator " + verInfo)
 	fmt.Println("========================================================================================")
-	if !(len(os.Args) == 2) {
-		fmt.Println("Usage: " + filepath.Base(os.Args[0]) + " [DLL path]")
+	if !(len(os.Args) >= 2) {
+		fmt.Println("Usage: " + filepath.Base(os.Args[0]) + " [DLL path] [custom_function_name]...")
+		fmt.Println("Example: " + filepath.Base(os.Args[0]) + " mylib.dll obs_get_version_string")
 		os.Exit(1)
 	}
 
 	checkStatName(os.Args[1])
+	
+	// Parse custom function names from command line
+	for i := 2; i < len(os.Args); i++ {
+		funcName := strings.TrimSpace(os.Args[i])
+		customFunctions[funcName] = ""
+	}
+	
 	if !(strings.Compare(PF86, "") == 0) {
 		realPF = PF86
 	} else if !(strings.Compare(PF, "") == 0) {
@@ -514,18 +523,60 @@ func main() {
 	// Create cArray
 	outData += `extern "C" {` + "\n"
 	for _, sstr := range cArray {
-		outData += "\tCFUNC(" + sstr + ", void)\n"
+		if _, exists := customFunctions[sstr]; !exists {
+			outData += "\tCFUNC(" + sstr + ", void)\n"
+		}
 	}
 	outData += `}` + "\n\n"
+	
+	// Add custom C function implementations
+	for funcName := range customFunctions {
+		// Check if this function exists in cArray
+		found := false
+		for _, sstr := range cArray {
+			if sstr == funcName {
+				found = true
+				break
+			}
+		}
+		if found {
+			outData += `extern "C" {` + "\n"
+			outData += "\t__declspec(dllexport) const char *" + funcName + "(void) { return \"\"; }\n"
+			outData += `}` + "\n\n"
+		}
+	}
 
 	// Create cppArray
 	for _, sstr := range cppArray {
-		re := regexp.MustCompile(`^(\S+ \*|\S+)\s.*`)
-		var dataType = re.ReplaceAllString(sstr, "$1")
-		if dataType == "void" {
-			outData += "CPPFUNC(" + sstr + " { return; })\n"
-		} else {
-			outData += "CPPFUNC(" + sstr + " { return (" + dataType + ")0; })\n"
+		// Extract function name from C++ signature
+		re := regexp.MustCompile(`^(?:\S+ \*|\S+)\s+(\S+?)\(`)
+		matches := re.FindStringSubmatch(sstr)
+		var funcName string
+		if len(matches) > 1 {
+			funcName = matches[1]
+		}
+		
+		if _, exists := customFunctions[funcName]; !exists {
+			re := regexp.MustCompile(`^(\S+ \*|\S+)\s.*`)
+			var dataType = re.ReplaceAllString(sstr, "$1")
+			if dataType == "void" {
+				outData += "CPPFUNC(" + sstr + " { return; })\n"
+			} else {
+				outData += "CPPFUNC(" + sstr + " { return (" + dataType + ")0; })\n"
+			}
+		}
+	}
+	
+	// Add custom C++ function implementations
+	for funcName := range customFunctions {
+		// Check if this function exists in cppArray
+		for _, sstr := range cppArray {
+			re := regexp.MustCompile(`^(?:\S+ \*|\S+)\s+(\S+?)\(`)
+			matches := re.FindStringSubmatch(sstr)
+			if len(matches) > 1 && matches[1] == funcName {
+				outData += "__declspec(dllexport) const char *" + funcName + "(void) { return \"\"; }\n"
+				break
+			}
 		}
 	}
 	os.MkdirAll(tmpDir, os.ModePerm)
