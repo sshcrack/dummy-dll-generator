@@ -204,6 +204,7 @@ var xmlData = `<?xml version="1.0" encoding="utf-8"?>
 
 const verInfo string = "v0.2 (20220608a)"
 const defineData string = `
+#include <stdint.h>
 #define CFUNC(func, ...) __declspec(dllexport) void func(__VA_ARGS__) { return; }
 #define CPPFUNC(...) __declspec(dllexport) __VA_ARGS__
 `
@@ -529,7 +530,7 @@ func main() {
 	}
 	outData += `}` + "\n\n"
 	
-	// Add custom C function implementations
+	// Add custom C function implementations (force uint32_t return 0)
 	for funcName := range customFunctions {
 		// Check if this function exists in cArray
 		found := false
@@ -541,7 +542,7 @@ func main() {
 		}
 		if found {
 			outData += `extern "C" {` + "\n"
-			outData += "\t__declspec(dllexport) const char *" + funcName + "(void) { return \"\"; }\n"
+			outData += "\t__declspec(dllexport) uint32_t " + funcName + "(void) { return 0; }\n"
 			outData += `}` + "\n\n"
 		}
 	}
@@ -567,13 +568,14 @@ func main() {
 		}
 	}
 	
-	// Add custom C++ function implementations
+	// Add custom C++ function implementations (force uint32_t return 0)
 	for funcName := range customFunctions {
 		// Check if this function exists in cppArray
 		for _, sstr := range cppArray {
 			re := regexp.MustCompile(`^(?:\S+ \*|\S+)\s+(\S+?)\(`)
 			matches := re.FindStringSubmatch(sstr)
 			if len(matches) > 1 && matches[1] == funcName {
+				fmt.Println("Adding custom implementation for C++ function: " + funcName)
 				outData += "__declspec(dllexport) uint32_t " + funcName + "(void) { return 0; }\n"
 				break
 			}
