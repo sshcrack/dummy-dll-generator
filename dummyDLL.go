@@ -574,7 +574,7 @@ func main() {
 			re := regexp.MustCompile(`^(?:\S+ \*|\S+)\s+(\S+?)\(`)
 			matches := re.FindStringSubmatch(sstr)
 			if len(matches) > 1 && matches[1] == funcName {
-				outData += "__declspec(dllexport) const char *" + funcName + "(void) { return \"\"; }\n"
+				outData += "__declspec(dllexport) uint32_t " + funcName + "(void) { return 0; }\n"
 				break
 			}
 		}
